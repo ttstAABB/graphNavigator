@@ -134,7 +134,7 @@ app.registerExtension({
                 // Rename menu item
                 const renameMenuItem = document.createElement("button");
                 renameMenuItem.textContent = "Rename";
-                renameMenuItem.style.display = "block";
+                renameMenuItem.style.display = "inherit";
                 renameMenuItem.onclick = () => {
                     const newName = prompt("Enter a new name for the view:", name.textContent);
                     if (newName) {
@@ -149,7 +149,7 @@ app.registerExtension({
                 // Delete menu item
                 const deleteMenuItem = document.createElement("button");
                 deleteMenuItem.textContent = "Delete";
-                deleteMenuItem.style.display = "block";
+                deleteMenuItem.style.display = "inherit";
                 deleteMenuItem.onclick = () => {
                     const index = views.findIndex((v) => v.name === view.name);
                     if (index !== -1) {
@@ -195,8 +195,8 @@ app.registerExtension({
 
         let handleKeyDown;
         
-        const updateShortcuts = (shortcutString, useCtrl, useShift) => {
-            const shortcuts = shortcutString.split(",");
+        const updateShortcuts = (shortcutString) => {
+            const shortcuts = shortcutString.split(",").map((shortcut) => shortcut.trim());
             if (handleKeyDown) {
                 document.removeEventListener("keydown", handleKeyDown);
             }
@@ -207,17 +207,18 @@ app.registerExtension({
                 const isContentEditable = focusedElement.contentEditable === "true";
             
                 if (!isTextInput && !isTextArea && !isContentEditable) {
-                    const ctrlPressed = !useCtrl || event.ctrlKey;
-                    const shiftPressed = !useShift || event.shiftKey;
+                    const pressedKeys = [];
+                    if (event.ctrlKey) pressedKeys.push("Ctrl");
+                    if (event.shiftKey) pressedKeys.push("Shift");
+                    if (event.altKey) pressedKeys.push("Alt");
+                    pressedKeys.push(getFKeyIndex(event.code));
         
-                    if (ctrlPressed && shiftPressed) {
-                        let code = getFKeyIndex(event.code);
-                        const index = shortcuts.indexOf(code);
-                        if (index >= 0 && views[index]) {
-                            const view = views[index];
-                            updateGraph(view);
-                            event.preventDefault();
-                        }
+                    const pressedKeysString = pressedKeys.join("+");
+                    const index = shortcuts.findIndex((shortcut) => shortcut === pressedKeysString);
+                    if (index >= 0 && views[index]) {
+                        const view = views[index];
+                        updateGraph(view);
+                        event.preventDefault();
                     }
                 }
             };
@@ -230,30 +231,40 @@ app.registerExtension({
 
         const loadViews = () => {
             // load views from local storage
-            const loadedViews = localStorage.getItem(id);
-            if (loadedViews) {
-                views = JSON.parse(loadedViews);
-                for (let key in views) {
-                    let view = views[key];
-                    renderView(view);
+            try {
+                const loadedViews = localStorage.getItem(id);
+                if (loadedViews) {
+                    var read = JSON.parse(loadedViews);
+                    if (typeof(views.push) != 'function')
+                        throw new Error("");
+                    views = read;
+                    for (let key in views) {
+                        let view = views[key];
+                        renderView(view);
+                    }
                 }
+            } catch (error) {
+                console.log("graphNavigator loading error");
+                localStorage.removeItem('graphNavigator');
             }
             const shortcutString = shortcutSetting?.value || "";
-            const useCtrl = useCtrlSetting?.value || false;
-            const useShift = useShiftSetting?.value || false;
-            updateShortcuts(shortcutString, useCtrl, useShift);
+            //const useCtrl = useCtrlSetting?.value || false;
+            //const useShift = useShiftSetting?.value || false;
+            //updateShortcuts(shortcutString, useCtrl, useShift);
+            updateShortcuts(shortcutString);
         };
         const init = () => {
             shortcutSetting = app.ui.settings.addSetting({
                 id: "shortcut",
                 name: "View Shortcut Keys",
-                defaultValue: "Digit1,Digit2,Digit3,Digit4,Digit5,Digit6,Digit7,Digit8,Digit9,Digit0",
+                defaultValue: "Digit1,Digit2,Digit3,Digit4,Shift+Digit1,Shift+Digit2,Shift+Digit3,Shift+Digit4",
                 type: "string",
                 onChange(value) {
                     updateShortcuts(value, useCtrlSetting?.value || false, useShiftSetting?.value || false);
                 },
             });
 
+            /*
             useCtrlSetting = app.ui.settings.addSetting({
                 id: "useCtrl",
                 name: "Use Ctrl Key",
@@ -273,6 +284,7 @@ app.registerExtension({
                     updateShortcuts(shortcutSetting?.value || "", useCtrlSetting?.value || false, value);
                 },
             });
+            */
         };
 
         init();
