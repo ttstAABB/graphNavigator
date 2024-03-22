@@ -195,8 +195,9 @@ app.registerExtension({
 
         let handleKeyDown;
         
-        const updateShortcuts = (shortcutString) => {
+        const updateShortcuts = (shortcutString, recaptureString) => {
             const shortcuts = shortcutString.split(",").map((shortcut) => shortcut.trim());
+            const recaptures = recaptureString.split(",").map((shortcut) => shortcut.trim());
             if (handleKeyDown) {
                 document.removeEventListener("keydown", handleKeyDown);
             }
@@ -214,11 +215,23 @@ app.registerExtension({
                     pressedKeys.push(getFKeyIndex(event.code));
         
                     const pressedKeysString = pressedKeys.join("+");
-                    const index = shortcuts.findIndex((shortcut) => shortcut === pressedKeysString);
+                    
+                    var index = shortcuts.findIndex((shortcut) => shortcut === pressedKeysString);
                     if (index >= 0 && views[index]) {
                         const view = views[index];
                         updateGraph(view);
                         event.preventDefault();
+                        return;
+                    }
+                    index = recaptures.findIndex((recapture) => recapture === pressedKeysString);
+                    if (index >= 0 && views[index]) {
+                        const view = views[index];
+                        const { ds: { scale, offset } } = app.canvas;
+                        view.scale = scale;
+                        view.offsetX = offset[0];
+                        view.offsetY = offset[1];
+                        saveViews();
+                        return;
                     }
                 }
             };
@@ -226,8 +239,7 @@ app.registerExtension({
         };
 
         let shortcutSetting;
-        let useCtrlSetting;
-        let useShiftSetting;
+        let recaptureSetting;
 
         const loadViews = () => {
             // load views from local storage
@@ -248,43 +260,29 @@ app.registerExtension({
                 localStorage.removeItem('graphNavigator');
             }
             const shortcutString = shortcutSetting?.value || "";
-            //const useCtrl = useCtrlSetting?.value || false;
-            //const useShift = useShiftSetting?.value || false;
-            //updateShortcuts(shortcutString, useCtrl, useShift);
-            updateShortcuts(shortcutString);
+            const recaptureString = recaptureSetting?.value || "";
+            updateShortcuts(shortcutString, recaptureSetting);
         };
         const init = () => {
             shortcutSetting = app.ui.settings.addSetting({
                 id: "shortcut",
                 name: "View Shortcut Keys",
-                defaultValue: "Digit1,Digit2,Digit3,Digit4,Shift+Digit1,Shift+Digit2,Shift+Digit3,Shift+Digit4",
+                defaultValue: "Digit1,Digit2,Digit3,Digit4,Digit5,Digit6,Digit7,Digit8,Digit9,Digit0",
                 type: "string",
                 onChange(value) {
-                    updateShortcuts(value, useCtrlSetting?.value || false, useShiftSetting?.value || false);
+                    updateShortcuts(value, recaptureSetting?.value || "");
                 },
             });
 
-            /*
-            useCtrlSetting = app.ui.settings.addSetting({
-                id: "useCtrl",
-                name: "Use Ctrl Key",
-                defaultValue: false,
-                type: "boolean",
+            recaptureSetting = app.ui.settings.addSetting({
+                id: "shortcutRecapture",
+                name: "View Shortcut Recapture Keys",
+                defaultValue: "Shift+Digit1,Shift+Digit2,Shift+Digit3,Shift+Digit4,Shift+Digit5,Shift+Digit6,Shift+Digit7,Shift+Digit8,Shift+Digit9,Shift+Digit0",
+                type: "string",
                 onChange(value) {
-                    updateShortcuts(shortcutSetting?.value || "", value, useShiftSetting?.value || false);
+                    updateShortcuts(shortcutSetting?.value || "", value);
                 },
             });
-
-            useShiftSetting = app.ui.settings.addSetting({
-                id: "useShift",
-                name: "Use Shift Key",
-                defaultValue: false,
-                type: "boolean",
-                onChange(value) {
-                    updateShortcuts(shortcutSetting?.value || "", useCtrlSetting?.value || false, value);
-                },
-            });
-            */
         };
 
         init();
