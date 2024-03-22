@@ -5,7 +5,8 @@ const id = "graphNavigator";
 app.registerExtension({
     name: id,
     async setup() {
-
+        
+        let updateGraph;
         var views = [];
 
         const menu = document.querySelector(".comfy-menu");
@@ -164,23 +165,12 @@ app.registerExtension({
             }
 
             // update graph scale and offset
-            const updateGraph = (view) => {
+            updateGraph = (view) => {
                 const { offsetX, offsetY, scale } = view;
                 app.canvas.setZoom(scale);
                 app.canvas.ds.offset = new Float32Array([offsetX, offsetY]);
                 app.canvas.setDirty(true, true);
             }
-
-            // shortcuts: press ctrl-shift-Fn keys to update graph
-            document.addEventListener("keydown", (event) => {
-                if (event.ctrlKey && event.shiftKey) {
-                    const fKeyIndex = getFKeyIndex(event.code);
-                    if (fKeyIndex >= 1 && fKeyIndex <= 12 && views[fKeyIndex - 1]) {
-                        const view = views[fKeyIndex - 1];
-                        updateGraph(view);
-                    }
-                }
-            });
 
         };
 
@@ -188,6 +178,41 @@ app.registerExtension({
             // save views to local storage
             localStorage.setItem(id, JSON.stringify(views));
         };
+
+        let handleKeyDown;
+        
+        const updateShortcuts = (shortcutString, useCtrl, useShift) => {
+            const shortcuts = shortcutString.split(",");
+            if (handleKeyDown) {
+                document.removeEventListener("keydown", handleKeyDown);
+            }
+            handleKeyDown = (event) => {
+                const focusedElement = document.activeElement;
+                const isTextInput = focusedElement.tagName === "INPUT" && focusedElement.type === "text";
+                const isTextArea = focusedElement.tagName === "TEXTAREA";
+                const isContentEditable = focusedElement.contentEditable === "true";
+            
+                if (!isTextInput && !isTextArea && !isContentEditable) {
+                    const ctrlPressed = !useCtrl || event.ctrlKey;
+                    const shiftPressed = !useShift || event.shiftKey;
+        
+                    if (ctrlPressed && shiftPressed) {
+                        let code = getFKeyIndex(event.code);
+                        const index = shortcuts.indexOf(code);
+                        if (index >= 0 && views[index]) {
+                            const view = views[index];
+                            updateGraph(view);
+                            event.preventDefault();
+                        }
+                    }
+                }
+            };
+            document.addEventListener("keydown", handleKeyDown);
+        };
+
+        let shortcutSetting;
+        let useCtrlSetting;
+        let useShiftSetting;
 
         const loadViews = () => {
             // load views from local storage
@@ -199,8 +224,44 @@ app.registerExtension({
                     renderView(view);
                 }
             }
+            const shortcutString = shortcutSetting?.value || "";
+            const useCtrl = useCtrlSetting?.value || false;
+            const useShift = useShiftSetting?.value || false;
+            updateShortcuts(shortcutString, useCtrl, useShift);
+        };
+        const init = () => {
+            shortcutSetting = app.ui.settings.addSetting({
+                id: "shortcut",
+                name: "View Shortcut Keys",
+                defaultValue: "Digit1,Digit2,Digit3,Digit4,Digit5,Digit6,Digit7,Digit8,Digit9,Digit0",
+                type: "string",
+                onChange(value) {
+                    updateShortcuts(value, useCtrlSetting?.value || false, useShiftSetting?.value || false);
+                },
+            });
+
+            useCtrlSetting = app.ui.settings.addSetting({
+                id: "useCtrl",
+                name: "Use Ctrl Key",
+                defaultValue: false,
+                type: "boolean",
+                onChange(value) {
+                    updateShortcuts(shortcutSetting?.value || "", value, useShiftSetting?.value || false);
+                },
+            });
+
+            useShiftSetting = app.ui.settings.addSetting({
+                id: "useShift",
+                name: "Use Shift Key",
+                defaultValue: false,
+                type: "boolean",
+                onChange(value) {
+                    updateShortcuts(shortcutSetting?.value || "", useCtrlSetting?.value || false, value);
+                },
+            });
         };
 
+        init();
         loadViews();
     },
 });
@@ -212,5 +273,5 @@ function getFKeyIndex(code) {
             return index;
         }
     }
-    return -1;
+    return code;
 }
