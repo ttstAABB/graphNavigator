@@ -117,6 +117,20 @@ app.registerExtension({
                 contextMenu.style.border = "1px solid black";
                 contextMenu.style.zIndex = 1000;
 
+                // Recapture menu item
+                const recaptureMenuItem = document.createElement("button");
+                recaptureMenuItem.textContent = "Recapture";
+                recaptureMenuItem.style.display = "inherit";
+                recaptureMenuItem.onclick = () => {
+                    const { ds: { scale, offset } } = app.canvas;
+                    view.scale = scale;
+                    view.offsetX = offset[0];
+                    view.offsetY = offset[1];
+                    saveViews();
+                    contextMenu.remove();
+                };
+                contextMenu.append(recaptureMenuItem);
+
                 // Rename menu item
                 const renameMenuItem = document.createElement("button");
                 renameMenuItem.textContent = "Rename";
